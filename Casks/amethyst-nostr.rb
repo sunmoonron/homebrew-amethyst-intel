@@ -28,8 +28,8 @@ cask "amethyst-nostr" do
   caveats <<~EOS
     This build is not signed or notarized, so Gatekeeper blocks the first launch.
     Either open System Settings > Privacy & Security and click "Open Anyway"
-    after the first attempt, or install with
-      brew install --cask --no-quarantine sunmoonron/amethyst-intel/amethyst-nostr
+    after the first attempt, or clear the quarantine flag once:
+      xattr -dr com.apple.quarantine /Applications/Amethyst.app
     The upstream project signs only its Apple Silicon build.
   EOS
 end

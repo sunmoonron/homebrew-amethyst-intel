@@ -143,5 +143,8 @@ jobs:
             echo "Cask already at $VER."
           else
             git commit -m "cask: amethyst-nostr $VER"
+            # main may have moved while this ran; the bump must land regardless, or
+            # the cask's checksum no longer matches the asset just uploaded.
+            git pull --rebase origin main
             git push
           fi

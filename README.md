@@ -14,13 +14,15 @@ Pick one.
 xattr -dr com.apple.quarantine /Applications/Amethyst.app
 ```
 
-**Homebrew.**
+**Homebrew.** Three commands: Homebrew 7 asks you to trust a tap that is not one of its own before it installs anything from it.
 
 ```
-brew install --cask --no-quarantine sunmoonron/amethyst-intel/amethyst-nostr
+brew tap sunmoonron/amethyst-intel
+brew trust sunmoonron/amethyst-intel
+brew install --cask sunmoonron/amethyst-intel/amethyst-nostr
 ```
 
-`--no-quarantine` skips the Gatekeeper step above; leave it out if you would rather click through once. The cask has the same name as the official one, so when Amethyst itself says an update is available and suggests `brew upgrade --cask amethyst-nostr`, that command does the right thing.
+Then the same one-time Gatekeeper step as for the DMG (Homebrew keeps the quarantine flag; the Terminal line above clears it). The cask has the same name as the official one, so when Amethyst itself says an update is available and suggests `brew upgrade --cask amethyst-nostr`, that command does the right thing.
 
 **Build it yourself.** On any Intel Mac with the Xcode Command Line Tools (`xcode-select --install`):
 
