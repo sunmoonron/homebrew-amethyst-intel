@@ -1,0 +1,147 @@
+# Builds the Intel (x86_64) macOS DMG of Amethyst Desktop from the upstream release
+# tag, publishes it as a release of this repository, and bumps the Homebrew cask.
+#
+# Runs every six hours and only does work when upstream has a release this repo
+# has not built yet, so a new upstream version shows up here within a few hours.
+# Can also be started by hand for a given tag.
+#
+# The build is build.sh, the script users run, on GitHub's macos-15-intel runner:
+# upstream's own release task plus the one build-script patch in patches/. The DMG
+# is unsigned: this repo has no Apple Developer certificate.
+name: Build Intel DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Upstream release tag to build (vX.Y.Z). Empty: the latest upstream release."
+        required: false
+        default: ""
+      force:
+        description: "Build even if this repo already has a release for that tag"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "23 */6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-intel-dmg
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: vitorpamplona/amethyst
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.pick.outputs.tag }}
+      version: ${{ steps.pick.outputs.version }}
+      build: ${{ steps.pick.outputs.build }}
+    steps:
+      - name: Pick the upstream tag and check whether it is already built here
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          TAG="${INPUT_TAG:-}"
+          if [ -z "$TAG" ]; then
+            TAG="$(gh api "repos/$UPSTREAM/releases/latest" --jq .tag_name)"
+          fi
+          VER="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          if [ "${FORCE:-false}" != "true" ] && gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists in $GITHUB_REPOSITORY; nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Will build $TAG."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true'
+    runs-on: macos-15-intel
+    timeout-minutes: 120
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      VER: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Check out this repository (for the cask bump)
+        uses: actions/checkout@v7
+        with:
+          path: tap
+
+      - name: Set up Temurin JDK 21 (x64 on this runner)
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build with build.sh (the same script users run)
+        run: |
+          set -euo pipefail
+          [ "$(uname -m)" = "x86_64" ]
+          sw_vers
+          # The shared modules have Android targets, so the Android Gradle plugin needs an
+          # SDK folder to exist. GitHub's image has one; build.sh creates an empty one otherwise.
+          bash tap/build.sh --tag "$TAG" --work-dir "$RUNNER_TEMP/amethyst-build"
+
+      - name: Collect the DMG under upstream's asset name
+        id: dmg
+        run: |
+          set -euo pipefail
+          NAME="amethyst-desktop-$VER-macos-x64.dmg"
+          mkdir -p dist
+          cp "$RUNNER_TEMP/amethyst-build/dist/$NAME" "dist/$NAME"
+          ( cd dist && shasum -a 256 "$NAME" | tee "$NAME.sha256" )
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(cut -d' ' -f1 "dist/$NAME.sha256")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.dmg.outputs.name }}
+          SHA256: ${{ steps.dmg.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Amethyst $VER for Intel (x86_64) Macs."
+            echo
+            echo "Built unmodified from the upstream release tag [$TAG](https://github.com/$UPSTREAM/releases/tag/$TAG) on a GitHub \`macos-15-intel\` runner by [this workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). Upstream's release notes describe what changed."
+            echo
+            echo "Not signed or notarized. The first launch needs the one-time Gatekeeper step in the README."
+            echo
+            echo "sha256 \`$NAME\`: \`$SHA256\`"
+          } > notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$NAME" "dist/$NAME.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          else
+            gh release create "$TAG" "dist/$NAME" "dist/$NAME.sha256" \
+              --repo "$GITHUB_REPOSITORY" --title "Amethyst $VER for Intel Macs" --notes-file notes.md
+          fi
+
+      - name: Bump the Homebrew cask
+        env:
+          SHA256: ${{ steps.dmg.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          cd tap
+          sed -i '' -E "s|^(  version ).*|\1\"$VER\"|; s|^(  sha256 ).*|\1\"$SHA256\"|" Casks/amethyst-nostr.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/amethyst-nostr.rb
+          if git diff --cached --quiet; then
+            echo "Cask already at $VER."
+          else
+            git commit -m "cask: amethyst-nostr $VER"
+            git push
+          fi

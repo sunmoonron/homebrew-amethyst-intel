@@ -1,0 +1,40 @@
+diff --git a/desktopApp/build.gradle.kts b/desktopApp/build.gradle.kts
+index a245533..38b3fea 100644
+--- a/desktopApp/build.gradle.kts
++++ b/desktopApp/build.gradle.kts
+@@ -192,6 +192,12 @@ abstract class BuildMacVideoPlayer
+         @get:Input
+         abstract val jdkHome: Property<String>
+ 
++        // The CPU the package is for: the one Gradle runs on, like everything jpackage bundles. A
++        // dylib for the other one is refused by dlopen ("incompatible architecture"), and the app
++        // then falls back to the library's own player, with the audio tap that crashes.
++        @get:Input
++        abstract val arch: Property<String>
++
+         @get:OutputDirectory
+         abstract val output: DirectoryProperty
+ 
+@@ -204,12 +210,12 @@ abstract class BuildMacVideoPlayer
+                     "update it or drop it (see its README)"
+             }
+             val out = output.get().asFile.apply { mkdirs() }
+-            val target = "arm64-apple-macosx14.0"
++            val target = "${arch.get()}-apple-macosx14.0"
+             val bridge = File(temporaryDir, "jni_bridge.o")
+             val jdk = jdkHome.get()
+             exec.exec {
+                 commandLine(
+-                    "clang", "-c", "-arch", "arm64", "-target", target,
++                    "clang", "-c", "-arch", arch.get(), "-target", target,
+                     "-I$jdk/include", "-I$jdk/include/darwin",
+                     File(dir, "jni_bridge.c").path, "-o", bridge.path,
+                 )
+@@ -232,6 +238,7 @@ val buildMacVideoPlayer =
+         sources.set(layout.projectDirectory.dir("native/macos-video-player"))
+         libraryVersion.set(libs.versions.composemediaplayer.get())
+         jdkHome.set(System.getProperty("java.home"))
++        arch.set(if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "arm64" else "x86_64")
+         output.set(layout.buildDirectory.dir("macVideoPlayer"))
+         onlyIf { isMacHost }
+     }
