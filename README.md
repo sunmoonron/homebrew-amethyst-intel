@@ -52,6 +52,7 @@ Everything else is upstream's own release task, `./gradlew :desktopApp:packageRe
 Differences from the official Apple Silicon build:
 
 - Unsigned and not notarized: there is no Apple Developer certificate here. Hence the one-time Gatekeeper step.
+- Keychain prompt after each update. Amethyst keeps your key in the macOS keychain (item "amethyst-desktop"). macOS lets an app read an item it stored only while it is the same signed app; an unsigned build counts as a new app every time it changes, so after an update the first launch asks for your Mac login password to let "Amethyst" use that item. Click Always Allow. Nothing leaves your Mac; it is the app reading its own key.
 - The Chromium that upstream bundles for napplets (JCEF) is downloaded on first use, as upstream does it; it has x86_64 builds.
 
 Checked on Intel: login, feeds, notifications, images, live streams. One library in the bundle, androidx `sqlite-bundled`, ships no Intel macOS native, but the desktop app never opens the store that uses it (upstream's `amy` CLI and `geode` relay do, which is why those stay Apple Silicon only).
