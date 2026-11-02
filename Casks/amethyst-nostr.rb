@@ -1,6 +1,6 @@
 cask "amethyst-nostr" do
   version "1.21.0"
-  sha256 "58412d7009467bcf8401bd332f879ebc7b03c2026535f778265d5bcdc7a14205"
+  sha256 "1f99f0256ad20b8a30ee0535c13a5e6e19e25a56985a278250d4d286e7e6eae7"
 
   url "https://github.com/sunmoonron/homebrew-amethyst-intel/releases/download/v#{version}/amethyst-desktop-#{version}-macos-x64.dmg"
   name "Amethyst"
