@@ -58,7 +58,7 @@ Checked on Intel: login, feeds, notifications, images, live streams. One library
 
 ## Upstream
 
-The proper fix is one leg in upstream's release workflow plus the shim fix above. GitHub offers `macos-15-intel` and `macos-26-intel` runners, and the app's updater already understands a `macos-x64.dmg` asset, so an upstream Intel DMG would update itself like every other platform. Upstream dropped its Intel leg in May 2026 when the old `macos-13` runner retired; the replacement runners arrived later. The proposal is on [this branch](https://github.com/sunmoonron/amethyst/tree/feat/ci-macos-intel-dmg); this repository exists until it lands.
+The proper fix is one leg in upstream's release workflow plus the shim fix above. GitHub offers `macos-15-intel` and `macos-26-intel` runners, and the app's updater already understands a `macos-x64.dmg` asset, so an upstream Intel DMG would update itself like every other platform. Upstream dropped its Intel leg in May 2026 when the old `macos-13` runner retired; the replacement runners arrived later. The proposal is [upstream issue 4744](https://github.com/vitorpamplona/amethyst/issues/4744), with the change ready on [this branch](https://github.com/sunmoonron/amethyst/tree/feat/ci-macos-intel-dmg); this repository exists until it lands.
 
 ## License
 
